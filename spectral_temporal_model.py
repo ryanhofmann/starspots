@@ -1,9 +1,3 @@
-import pymacula
-import numpy as np
-import ldtk
-import line_ratio
-import matplotlib.pyplot as plt
-
 """
 This package is used to plot the relative flux of a spotted star,
 resolved both spectrally (y-axis) and temporally (x-axis).
@@ -21,6 +15,12 @@ contrast ratio.
 
 The relative flux is then plotted as a 2D heatmap.
 """
+
+import pymacula
+import numpy as np
+import ldtk
+import line_ratio
+import matplotlib.pyplot as plt
 
 class model(object):
   def __init__(self, Tphot=5800, Tspot=3800, spots=None, nspots=1):
@@ -55,15 +55,11 @@ def ldParams(T=5800, logg=4.50, z=0.0, xmin=400, xmax=700, dx=10):
     filters.append(ldtk.BoxcarFilter('{:d}'.format(i), xmin + dx*i, xmin + dx*(i+1)))
 
   # Define star and download uncached spectra
-  sc = ldtk.LDPSetCreator(teff=(T, 50), logg=(logg, 0.20), z=(z, 0.05), filters=filters)
+  sc = ldtk.LDPSetCreator(teff=(T, 1), logg=(logg, 0.01), z=(z, 0.01), filters=filters)
 
   # Create LD profiles and estimate nonlinear coefficients
   ps = sc.create_profiles()
-  import time
-  t1 = time.time()
-  cq, eq = ps.coeffs_nl(do_mc=True)
-  t2 = time.time()
-  print("Calculation time: {:.0f} seconds".format(t2-t1))
+  cq, eq = ps.coeffs_nl(do_mc=False)
 
   # Return coefficients array
   return cq
@@ -72,12 +68,12 @@ def ldParams(T=5800, logg=4.50, z=0.0, xmin=400, xmax=700, dx=10):
 if __name__=="__main__":
 
   # Set star properties
-  Tphot = 5800
+  Tphot = 5000
   logg = 4.50
   z = 0.0
 
   # Set spot properties
-  Tspot = 3800
+  Tspot = 4000
   nspots = 1
   lat = [50]
   lon = [0]
@@ -88,27 +84,30 @@ if __name__=="__main__":
   spots = [pymacula.Spot(lat=lat[i]*np.pi/180., lon=lon[i]*np.pi/180., ingress=ingress[i], egress=egress[i], tmax=tmax[i], lifetime=lifetime[i]) for i in range(nspots)]
 
   # Set wavelength range and step value
-  xmin, xmax, dx = 300, 2500, 5
+  xmin, xmax, dx = 300, 2500, 10
 
   # Initialize model
   star = model(Tphot, Tspot, spots)
 
   # Compute limb darkening coefficients
   ld_star = ldParams(Tphot, logg, z, xmin, xmax, dx)
-  print("Star LD params computed")
   ld_spot = ldParams(Tspot, logg, z, xmin, xmax, dx)
-  print("Spot LD params computed")
 
-  # Compute contrast ratio from PHOENIX spectra
+  # Get PHOENIX spectra
   preface = "PHOENIX_spectra/"
-  ratio_full = line_ratio.specRatio(preface, "R", Tphot, Tspot, logg, z)
+  spec1_full, spec2_full = line_ratio.getSpectra(preface, "R", Tphot, Tspot, logg, z)
 
-  # Resample contrast ratio with boxcar average
-  x = np.exp(1e-5*np.arange(len(ratio_full)))*300
+  # Resample spectra with boxcar average
+  x = np.exp(1e-5*np.arange(len(spec1_full)))*300
   nx = int((xmax-xmin)/dx)
-  ratio = np.zeros(nx)
+  spec1 = np.zeros(nx)
+  spec2 = np.zeros(nx)
   for i in range(nx):
-    ratio[i] = np.mean(ratio_full[np.where(np.abs(x-(2*xmin+(2*i+1)*dx)/2) <= dx/2)])
+    spec1[i] = np.mean(spec1_full[np.where(np.abs(x-(2*xmin+(2*i+1)*dx)/2) <= dx/2)])
+    spec2[i] = np.mean(spec2_full[np.where(np.abs(x-(2*xmin+(2*i+1)*dx)/2) <= dx/2)])
+
+  # Compute ratio of spectra
+  ratio = spec2/spec1
 
   # Compute lightcurve for each spectral bin
   ts = np.arange(0, 500, 0.05)
@@ -129,10 +128,22 @@ if __name__=="__main__":
 
   # Plot results
   from matplotlib import cm
-  plt.imshow(flux, aspect='auto', extent=[0,500,xmin,xmax], origin='lower', cmap=cm.get_cmap('gray'))
-  plt.xlabel("time [arbitrary units]")
+  from matplotlib import colorbar
+  fig = plt.figure(figsize=(12,11))
+  ax1 = plt.subplot2grid((10,9), (0,0), rowspan=2, colspan=8)
+  plt.ylabel("relative flux")
+  ax2 = plt.subplot2grid((10,9), (2,0), rowspan=4, colspan=8, sharex=ax1)
   plt.ylabel("wavelength [nm]")
-  plt.savefig("stm.png")
-  plt.show()
-  plt.clf()
+  ax3 = plt.subplot2grid((10,9), (6,0), rowspan=4, colspan=8, sharex=ax1)
+  plt.xlabel("time")
+  plt.ylabel("wavelength [nm]")
+  ax4 = plt.subplot2grid((10,9), (2,8), rowspan=4, colspan=1)
+  ax5 = plt.subplot2grid((10,9), (6,8), rowspan=4, colspan=1)
+  f1 = ax1.plot(ts, np.mean(flux, axis=0), '-k')
+  f2 = ax2.imshow(flux, aspect='auto', extent=[0,500,xmin,xmax], origin='lower', cmap=cm.get_cmap('gray'))
+  plt.colorbar(f2, cax=ax4)
+  f3 = ax3.imshow(flux/np.mean(flux,axis=0), aspect='auto', extent=[0,500,xmin,xmax], origin='lower', cmap=cm.get_cmap('gray'))
+  plt.colorbar(f3, cax=ax5)
+  plt.tight_layout()
+  plt.savefig("Tp_{:d}_Ts_{:d}.png".format(Tphot,Tspot))
 
