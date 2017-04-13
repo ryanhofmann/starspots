@@ -230,7 +230,7 @@ def plotTDV(flux,xmin,xmax,dx,tmin,tmax,dt,Tphot,Tspot,Rp_Rs):
   times = np.linspace(ind_min-0.25*p, ind_min, num=9, endpoint=True)
   for time in times:
     plt.plot(wl, TdV[:,int(time)])
-  plt.plot(np.array([0,xmax]), np.array([1.,1.])*Rp_Rs**2, '-k')
+  plt.axhline(Rp_Rs**2, color='k')
   plt.xlabel("wavelength [nm]")
   plt.ylabel(r"$\delta_{obs}$ [normalized flux]")
   plt.tight_layout()
