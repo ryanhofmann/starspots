@@ -1,6 +1,9 @@
-pymacula
-PHOENIX_spectra
-spotrod
 ldtk
+PHOENIX_spectra
+pymacula
+spot_TDV_testing
+spotrod
+testing
+
 *.pkl
 *.png
