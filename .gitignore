@@ -1,10 +1,11 @@
+__pycache__
 Exo_Transmit
 ldtk
+ldParams
 PHOENIX_spectra
 pymacula
 spot_TDV_testing
 spotrod
+TDV
 testing
 
-*.pkl
-*.png
