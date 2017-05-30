@@ -81,7 +81,7 @@ def ldParams(T=5800, logg=4.50, z=0.0, xmin=400, xmax=700, dx=10):
   return cq
 
 
-def computeFlux(Tphot,Tspot,logg,z,nspots,spots,xmin,xmax,dx,tmin,tmax,dt):
+def computeFlux(Tphot,Tspot,logg,z,nspots,spots,xmin,xmax,dx,tmin,tmax,dt,Peq=30):
   """
   Computes a MACULA light curve for each wavelength in x.
   Returns 2D flux array.
@@ -89,6 +89,7 @@ def computeFlux(Tphot,Tspot,logg,z,nspots,spots,xmin,xmax,dx,tmin,tmax,dt):
 
   # Initialize model
   star = model(Tphot, Tspot, spots)
+  star.macmod.star.Peq = Peq
 
   # Get PHOENIX spectra, interpolating if Tphot or Tspot not in PHOENIX grid points
   preface = "PHOENIX_spectra/"
@@ -186,6 +187,18 @@ def keplerFilter(dx):
   K_func = interp1d(K_wl, K_response, bounds_error=False, fill_value=0)
 
   return K_func
+
+
+def mearthFilter(fin="mearthtrans.txt"):
+  """
+  MEarth response function, read from text file.
+  Returns interpolated function.
+  """
+
+  f = np.genfromtxt(fin)
+  mearth_func = interp1d(f[:,0], f[:,1], bounds_error=False, fill_value=0)
+
+  return mearth_func
 
 
 def plotFilters(flux,xmin,xmax,dx,tmin,tmax,dt,Tphot,Tspot):

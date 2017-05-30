@@ -24,6 +24,7 @@ import spectral_temporal_model as stm
 import pymacula
 import os
 import pickle
+import time
 from matplotlib import cm
 from matplotlib import colorbar
 
@@ -33,12 +34,13 @@ if __name__=="__main__":
   N = 100
 
   # Set star properties
-  Tphot = 2560
-  Tspot = 2300
+  Tphot = 3270
+  Tspot = 2470
   logg = 5.0
   z = 0.0
-  Rs = 0.117
-  Rp_Rs = (1./109.)/Rs
+  Peq = 125
+  Rs = 0.207
+  Rp_Rs = 1.16*(1./109.)/Rs
 
   # Set wavelength range and step value
   xmin, xmax, dx = 300, 2500, 10
@@ -48,8 +50,21 @@ if __name__=="__main__":
   tmin, tmax, dt = 0, 500, 0.05
   ts = np.arange(tmin,tmax,dt)
 
+  # Set bandpass
+  band = "MEarth"  # Can be "Kepler" or "MEarth"
+
+  # Create response function for specified bandpass
+  if band == "Kepler":
+    band_response = stm.keplerFilter(dx)
+  elif band == "MEarth":
+    band_response = stm.mearthFilter(fin="mearthtrans.txt")
+  else:
+    print("Error: invalid bandpass specified")
+    exit()
+
+
   # Create new folder if none exists
-  foldername = "TDV/{:05d}_{:05d}_{:.3f}".format(Tphot, Tspot, Rp_Rs)
+  foldername = "TDV/GJ1132b_Peq_125" # {:05d}_{:05d}_{:.3f}".format(Tphot, Tspot, Rp_Rs)
   if not os.path.isdir(foldername):
     os.mkdir(foldername)
     os.mkdir(foldername+'/fluxes')
@@ -64,34 +79,41 @@ if __name__=="__main__":
   TDVMin, TDVMax = 0, 0
   nlines = 20
   print("Computing fluxes")
+  tstart = time.time()
   while i < N:
     try:
       # Set spot properties
-      nspots = int(np.ceil(10*np.random.rand()))  # random integer between 1 and 10
-      alpha_max = 10*np.ones(nspots)
+      nspots = np.random.randint(1,11)  # random integer between 1 and 10
+      alpha_max = 5*np.ones(nspots)
       spots = [pymacula.Spot(alpha_max=alpha_max[j]) for j in range(nspots)]
 
       # Compute fluxes
-      flux = stm.computeFlux(Tphot,Tspot,logg,z,nspots,spots,xmin,xmax,dx,tmin,tmax,dt)
+      flux = stm.computeFlux(Tphot,Tspot,logg,z,nspots,spots,xmin,xmax,dx,tmin,tmax,dt,Peq)
 
-      # Create Kepler lightcurve
-      K_response = stm.keplerFilter(dx)
-      K_flux = np.zeros([46,int((tmax-tmin)/dt)])
-      for j in range(46):
-        K_flux[j] = K_response(430+dx*j)*flux[int((430-xmin)/dx)+j]
-      K_curve = np.mean(K_flux,axis=0)/np.mean(K_flux[:,0])
+      # Filter to selected bandpass
+      if band == "Kepler":
+        # Create Kepler lightcurve
+        band_flux = np.zeros([46,int((tmax-tmin)/dt)])
+        for j in range(46):
+          band_flux[j] = band_response(430+dx*j)*flux[int((430-xmin)/dx)+j]
+        band_curve = np.mean(band_flux,axis=0)/np.mean(band_flux[:,0])
+      elif band == "MEarth":
+        band_flux = np.zeros([42,int((tmax-tmin)/dt)])
+        for j in range(42):
+          band_flux[j] = band_response(650+dx*j)*flux[int((650-xmin)/dx)+j]
+        band_curve = np.mean(band_flux,axis=0)/np.mean(band_flux[:,0])
 
-      # Check Kepler sigma
-      sigma = np.var(K_curve)**0.5
-      amp = (np.max(K_curve) - np.min(K_curve))/2.
-#      if amp < 0.0075 or amp > 0.0125:
-#        continue
+      # Check band sigma
+      sigma = np.var(band_curve)**0.5
+      amp = (np.max(band_curve) - np.min(band_curve))/2.
+      if amp < 0.0075 or amp > 0.0125:
+        continue
 
       # Update plot limits
       TDV = flux**-1*Rp_Rs**2
       TDV_lines = np.array([TDV[:, int((k+0.5)*tmax/dt/nlines)] for k in range(nlines)])
-      Kmin = np.min(K_curve)
-      Kmax = np.max(K_curve)
+      Kmin = np.min(band_curve)
+      Kmax = np.max(band_curve)
       TDVmin = np.min(TDV_lines)
       TDVmax = np.max(TDV_lines)
       if Kmax > KMax: KMax = Kmax
@@ -106,7 +128,9 @@ if __name__=="__main__":
       params = (i, nspots, sigma, amp, KMin, KMax, TDVMin, TDVMax)
       pickle.dump((params, flux), open(fluxname, 'wb'))
 
-      print("\r{:d}/{:d} fluxes computed".format(i+1, N), end='')
+      tnew = time.time()
+      tleft = (tnew - tstart)/(i+1)*(N - (i+1))
+      print("\r{:d}/{:d} fluxes computed, {:.0f} minutes remaining ".format(i+1, N, tleft/60.), end='')
       i += 1
 
     except KeyboardInterrupt:
@@ -126,22 +150,27 @@ if __name__=="__main__":
     params, flux = pickle.load(open(foldername+'/fluxes/'+fluxnames[j], 'rb'))
     i, nspots, sigma, amp, Kmin, Kmax, TDVmin, TDVmax = params
 
-    # Kcurve TDVdist plot
-    # Create Kepler lightcurve
-    K_response = stm.keplerFilter(dx)
-    K_flux = np.zeros([46,int((tmax-tmin)/dt)])
-    for k in range(46):
-      K_flux[k] = K_response(430+dx*k)*flux[int((430-xmin)/dx)+k]
-    K_curve = np.mean(K_flux,axis=0)/np.mean(K_flux[:,0])
+    # band_curve TDVdist plot
+    if band=="Kepler":
+      # Create Kepler lightcurve
+      band_flux = np.zeros([46,int((tmax-tmin)/dt)])
+      for k in range(46):
+        band_flux[k] = band_response(430+dx*k)*flux[int((430-xmin)/dx)+k]
+      band_curve = np.mean(band_flux,axis=0)/np.mean(band_flux[:,0])
+    elif band=="MEarth":
+      band_flux = np.zeros([42,int((tmax-tmin)/dt)])
+      for k in range(42):
+        band_flux[k] = band_response(650+dx*k)*flux[int((650-xmin)/dx)+k]
+      band_curve = np.mean(band_flux,axis=0)/np.mean(band_flux[:,0])
 
     # Plot lightcurve
     plt.figure(figsize=(8,8))
     plt.subplot(211)
-    plt.plot(ts, K_curve, '-k')
+    plt.plot(ts, band_curve, '-k')
     plt.title("nspots={:d}, sigma={:.5f}, amp={:.5f}".format(nspots, sigma, amp))
     plt.ylim(KMin, KMax)
     plt.xlabel("time")
-    plt.ylabel("Kepler flux")
+    plt.ylabel("{} flux".format(band))
 
     # Plot delta_obs distribution
     plt.subplot(212)
@@ -155,13 +184,13 @@ if __name__=="__main__":
     plt.tight_layout()
 
     # Save figure
-    plt.savefig("{}/plots/{:d}spot_{:d}_Kcurve_TDVdist.png".format(foldername, nspots, i))
+    plt.savefig("{}/plots/{:d}spot_{:d}_{}curve_TDVdist.png".format(foldername, nspots, i, band))
     plt.clf()
 
     # 3 panel plot
     fig = plt.figure(figsize=(12, 8))
     ax1 = plt.subplot2grid((8,24), (0,6), rowspan=2, colspan=15)
-    plt.ylabel("Kepler flux")
+    plt.ylabel("{} flux".format(band))
     ax2 = plt.subplot2grid((8,24), (2,0), rowspan=6, colspan=6)
     plt.ylabel("wavelength")
     plt.xlabel("transit depth")
@@ -170,7 +199,7 @@ if __name__=="__main__":
     ax4 = plt.subplot2grid((8,24), (2,21), rowspan=6, colspan=3)
     cmap = cm.get_cmap('rainbow')
     colors = [cmap((k+0.5)/nlines) for k in range(nlines)]
-    f11 = ax1.plot(ts, K_curve, '-k')
+    f11 = ax1.plot(ts, band_curve, '-k')
     f12 = [ax1.axvline((k+0.5)*tmax/nlines, color=colors[k]) for k in range(nlines)]
     ax1.set_ylim([KMin, KMax])
     f21 = [ax2.plot(TDV[:, int((k+0.5)*tmax/dt/nlines)], xs, color=colors[k]) for k in range(nlines)]
