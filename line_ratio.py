@@ -93,7 +93,7 @@ def specRatio(preface="", grid="R", Tphot=5800, Tspot=3800, g=4.5, Z=0.0, alpha=
 if __name__=="__main__":
 
   # Get inputs
-  preface = input("Parent directory [./]: ") or ""
+  preface = input("Spectra directory [PHOENIX_spectra/]: ") or "PHOENIX_spectra/"
   grid = input("grid [R]: ") or "R"
   Tphot = input("Photosphere temperature [5800]: ") or '5800'
   Tphot = int(Tphot)

@@ -1,0 +1,80 @@
+line_ratio
+
+Computes the ratio of two spectra at different temperatures.
+Assumes med-res spectra extracted to working or child directory.
+If run standalone, plots ratio vs. wavelength and exits.
+
+EXAMPLE: plot ratio of 5800 K and 3800 K spectra (default values), smoothed to 1 nm resolution
+
+$ python3 line_ratio.py 
+Spectra directory [PHOENIX_spectra/]: 
+grid [R]: 
+Photosphere temperature [5800]: 
+Spot temperature [3800]: 
+Log surface gravity [4.5]: 
+Metallicity [0.0]: 
+Alpha enhancement [0.0]: 
+Apply gaussian smoothing? [no]: yes
+Resolution (angstroms) [10]: 
+
+
+spectral_temporal_model
+
+This package is used to plot the relative flux of a spotted star,
+resolved both spectrally (y-axis) and temporally (x-axis).
+
+Before execution, define the spot parameters in settings file
+"spectral_temporal_model_settings.py".
+
+When executed, a model is created with the specified spots.
+LDTK is used to calculate the nonlinear LD coefficients, for
+both the star and the spot, as a function of wavelength.
+The appropriate PHOENIX spectra are used to calculate the
+wavelength-dependent contrast ratio of the starspots.
+The lightcurve for each wavelength bin is then calculated
+using MACULA, with the corresponding LD coefficients and
+contrast ratio.
+
+The relative flux is then plotted as a 2D heatmap.
+
+EXAMPLE: create plots for the specified spot configuration
+
+$ python3 spectral_temporal_model.py
+
+
+spot_TDV_model
+
+This module is used to create a large number of starspot models
+with a range of parameters, optionally constrained to a specified
+level of brightness variation. The models are saved to disk, and
+two plots are produced for each: a 3-panel plot, with the mean
+lightcurve and several TDV curves adjacent to the full 2-D flux;
+and a 2-panel plot, with the mean lightcurve and the full
+distribution of TDV curves.
+
+Before executing, define settings in "spot_TDV_model_settings.py".
+
+EXAMPLE: create a random set of starspot models and plots
+
+$ python3 spot_TDV_model.py
+Computing fluxes
+100/100 fluxes computed, 0 minutes remaining 
+100 fluxes computed
+Creating plots
+100%|███████████████████████████████████████████████████████████████| 100/100 [06:39<00:00,  5.02s/it]
+
+
+comparison_plot
+
+This script generates a plot comparing the transit depth variations
+(TDV) caused by starspots to those caused by a transiting planet's
+atmosphere. First, compute flux models with spot_TDV_model and use
+the generated plots to select a model (the number in the plot's
+filename). Locate the .pkl file with that number; this is your
+flux_file. Next, use Exo-Transmit to compute spectra for your
+planet's atmosphere; edit the appropriate lines below to identify
+your spectra files. To change the compositions listed below, use
+search-and-replace. Finally, set the remaining variables and
+execute the script.
+
+

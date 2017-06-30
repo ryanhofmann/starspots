@@ -1,19 +1,31 @@
 #!/usr/bin/env python3
 
+"""
+This script generates a plot comparing the transit depth variations
+(TDV) caused by starspots to those caused by a transiting planet's
+atmosphere. First, compute flux models with spot_TDV_model and use
+the generated plots to select a model (the number in the plot's
+filename). Locate the .pkl file with that number; this is your
+flux_file. Next, use Exo-Transmit to compute spectra for your
+planet's atmosphere; edit the appropriate lines below to identify
+your spectra files. To change the compositions listed below, use
+search-and-replace. Finally, set the remaining variables and
+execute the script.
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
 
 # Set variables
-flux_file = "/home/ryan/research/starspots/TDV/GJ1132b/fluxes/005.pkl"
-#Rs = 1.
-#Rp_Rs = (1./109.)/Rs
-#Rp_Rs = 6.4/81.9
-solar_file = "/home/ryan/research/starspots/Exo_Transmit/Spectra/GJ1132/500K_solar_GJ1132b.dat"
-H2O_file = "/home/ryan/research/starspots/Exo_Transmit/Spectra/GJ1132/500K_H2O_GJ1132b.dat"
-CO2_file = "/home/ryan/research/starspots/Exo_Transmit/Spectra/GJ1132/500K_CO2_GJ1132b.dat"
+planet = "LHS1140b"
+dT = 100
+flux_file = "/home/ryan/research/starspots/TDV/LHS1140b_100K/fluxes/014.pkl"
+solar_file = "/home/ryan/research/starspots/Exo_Transmit/Spectra/LHS1140/300K_solar_LHS1140b.dat"
+H2O_file = "/home/ryan/research/starspots/Exo_Transmit/Spectra/LHS1140/300K_H2O_LHS1140b.dat"
+CO2_file = "/home/ryan/research/starspots/Exo_Transmit/Spectra/LHS1140/300K_CO2_LHS1140b.dat"
 labels = ["solar", "H2O", "CO2"]
-star = "GJ1132b"
+xmin, xmax, dx = 3000, 25000, 100
 
 # Load flux array from file
 params, flux = pickle.load(open(flux_file, "rb"))
@@ -29,7 +41,6 @@ Rp_Rs = np.sqrt(0.01*np.min(spectra[:,:,1]))
 TDV = flux**-1*Rp_Rs**2
 
 # Plot TDV distribution
-xmin, xmax, dx = 3000, 25000, 100
 xs = np.arange(xmin,xmax,dx)
 plt.figure(figsize=(16,9))
 for i in range(int(len(TDV[0])/10)):
@@ -42,10 +53,10 @@ for spectrum, label in zip(spectra, labels):
 # Format plot
 plt.axhline(Rp_Rs**2*100, color='k')
 plt.xlim((xmin, xmax))
-plt.ylim((0.255, 0.295))
+plt.ylim((0.49, 0.55))
 plt.legend()
 plt.xlabel("angstroms")
 plt.ylabel("transit depth [%]")
-plt.title("Starspot TDVs and atmospheric models for {}".format(star))
-plt.savefig("comparison_{}.png".format(star))
+plt.title("Starspot TDVs and atmospheric models for {}, DeltaT = {:d} K, ".format(planet, dT))
+plt.savefig("comparison_{}_{:d}K.png".format(planet, dT))
 

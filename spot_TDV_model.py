@@ -1,21 +1,15 @@
+#!/usr/bin/env python3
+
 """
-Choose Tphot,Tspot.
-For i in range(a lot):
-  generate model(random spots, n=1-10)
-  if sigma in Kepler bandpass = 1% +/- 0.1%:
-    store range of delta_obs(lambda)
-    3-panel plot:
-      flux plot in center
-      Kepler lightcurve on top
-      delta_obs plot, rotated, at left, 10 evenly spaced times
-        label times with vlines on flux plot
-Plot all delta_obs(lambda) ranges
-For 10 first models:
-  plot flux vs time
-  plot D vs lambda
-Violin plot of D at set of lambda
-  start with histograms of D
-  start with every 100 nm (22 total histograms)
+This module is used to create a large number of starspot models
+with a range of parameters, optionally constrained to a specified
+level of brightness variation. The models are saved to disk, and
+two plots are produced for each: a 3-panel plot, with the mean
+lightcurve and several TDV curves adjacent to the full 2-D flux;
+and a 2-panel plot, with the mean lightcurve and the full
+distribution of TDV curves.
+
+Before executing, define settings in "spot_TDV_model_settings.py".
 """
 
 import numpy as np
@@ -30,84 +24,74 @@ from matplotlib import colorbar
 
 if __name__=="__main__":
 
-  # Number of models to try
-  N = 100
-
-  # Set star properties
-  Tphot = 3270
-  Tspot = 2470
-  logg = 5.0
-  z = 0.0
-  Peq = 125
-  Rs = 0.207
-  Rp_Rs = 1.16*(1./109.)/Rs
+  # Get input values from settings file
+  from spot_TDV_model_settings import *
 
   # Set wavelength range and step value
-  xmin, xmax, dx = 300, 2500, 10
   xs = np.arange(xmin,xmax,dx)
 
   # Set time range and step value
-  tmin, tmax, dt = 0, 500, 0.05
   ts = np.arange(tmin,tmax,dt)
-
-  # Set bandpass
-  band = "MEarth"  # Can be "Kepler" or "MEarth"
 
   # Create response function for specified bandpass
   if band == "Kepler":
     band_response = stm.keplerFilter(dx)
   elif band == "MEarth":
     band_response = stm.mearthFilter(fin="mearthtrans.txt")
+  elif band == "None":
+    pass
   else:
     print("Error: invalid bandpass specified")
     exit()
 
 
   # Create new folder if none exists
-  foldername = "TDV/GJ1132b_Peq_125" # {:05d}_{:05d}_{:.3f}".format(Tphot, Tspot, Rp_Rs)
   if not os.path.isdir(foldername):
     os.mkdir(foldername)
     os.mkdir(foldername+'/fluxes')
     os.mkdir(foldername+'/plots')
 
-  # Initialize RNG
-  np.random.seed(170303)
-
   # For each simulation
   i = 0
   KMin, KMax = 0, 0
   TDVMin, TDVMax = 0, 0
-  nlines = 20
   print("Computing fluxes")
   tstart = time.time()
   while i < N:
     try:
       # Set spot properties
-      nspots = np.random.randint(1,11)  # random integer between 1 and 10
-      alpha_max = 5*np.ones(nspots)
+      nspots = np.random.randint(1, N_max + 1)  # random integer between 1 and 10
+      alpha_max = R_spot*np.ones(nspots)
       spots = [pymacula.Spot(alpha_max=alpha_max[j]) for j in range(nspots)]
 
       # Compute fluxes
       flux = stm.computeFlux(Tphot,Tspot,logg,z,nspots,spots,xmin,xmax,dx,tmin,tmax,dt,Peq)
 
-      # Filter to selected bandpass
-      if band == "Kepler":
-        # Create Kepler lightcurve
-        band_flux = np.zeros([46,int((tmax-tmin)/dt)])
-        for j in range(46):
-          band_flux[j] = band_response(430+dx*j)*flux[int((430-xmin)/dx)+j]
-        band_curve = np.mean(band_flux,axis=0)/np.mean(band_flux[:,0])
-      elif band == "MEarth":
-        band_flux = np.zeros([42,int((tmax-tmin)/dt)])
-        for j in range(42):
-          band_flux[j] = band_response(650+dx*j)*flux[int((650-xmin)/dx)+j]
-        band_curve = np.mean(band_flux,axis=0)/np.mean(band_flux[:,0])
+      if band != "None":
+        # Filter to selected bandpass
+        if band == "Kepler":
+          # Create Kepler lightcurve
+          band_flux = np.zeros([46,int((tmax-tmin)/dt)])
+          for j in range(46):
+            band_flux[j] = band_response(430+dx*j)*flux[int((430-xmin)/dx)+j]
+          band_curve = np.mean(band_flux,axis=0)/np.mean(band_flux[:,0])
+        elif band == "MEarth":
+          band_flux = np.zeros([42,int((tmax-tmin)/dt)])
+          for j in range(42):
+            band_flux[j] = band_response(650+dx*j)*flux[int((650-xmin)/dx)+j]
+          band_curve = np.mean(band_flux,axis=0)/np.mean(band_flux[:,0])
+      elif band == "None":
+        band_curve = np.mean(flux,axis=0)/np.mean(flux[:,0])
 
       # Check band sigma
       sigma = np.var(band_curve)**0.5
       amp = (np.max(band_curve) - np.min(band_curve))/2.
-      if amp < 0.0075 or amp > 0.0125:
-        continue
+      if filter_by == "amp":
+        if amp < amp_min or amp > amp_max:
+          continue
+      if filter_by == "sigma":
+        if sigma < sigma_min or sigma > sigma_max:
+          continue
 
       # Update plot limits
       TDV = flux**-1*Rp_Rs**2
@@ -162,6 +146,8 @@ if __name__=="__main__":
       for k in range(42):
         band_flux[k] = band_response(650+dx*k)*flux[int((650-xmin)/dx)+k]
       band_curve = np.mean(band_flux,axis=0)/np.mean(band_flux[:,0])
+    elif band=="None":
+      band_curve = np.mean(flux,axis=0)/np.mean(flux[:,0])
 
     # Plot lightcurve
     plt.figure(figsize=(8,8))
@@ -215,3 +201,4 @@ if __name__=="__main__":
     # Save figure
     plt.savefig("{}/plots/{:d}spot_{:d}_3panel.png".format(foldername, nspots, i))
     plt.clf()
+
