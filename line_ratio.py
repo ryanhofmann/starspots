@@ -12,7 +12,7 @@ from astropy.io import fits
 
 def getSpectra(preface="", grid="R", Tphot=5800, Tspot=3800, g=4.5, Z=0.0, alpha=0.0):
   """
-  Load spectra into arrays
+  Load 2 spectra into arrays
   grid can be "A" for angstroms or "R" for resolving power
   See PHOENIX paper and site for valid T, g, Z, alpha
   """

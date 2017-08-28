@@ -1,0 +1,39 @@
+************************
+line_ratio
+************************
+
+getSpectra
+
+Load 2 spectra into arrays
+grid can be "A" for angstroms or "R" for resolving power
+See PHOENIX paper and site for valid T, g, Z, alpha
+
+EXAMPLE: Plot spectra for the Sun's photosphere and a cool spot
+>>> import numpy as np
+>>> import matplotlib.pyplot as plt
+>>> import line_ratio as lr
+>>> star, spot = lr.getSpectra("PHOENIX_spectra/","R",5800,4800)
+>>> wavelengths = np.exp(np.arange(len(star))*1e-5)*3000
+>>> plt.plot(wavelengths, star)
+>>> plt.plot(wavelengths, spot)
+>>> plt.show()
+
+
+
+************************
+spectral_temporal_model
+************************
+
+
+
+************************
+spot_TDV_model
+************************
+
+
+
+************************
+comparison_plot
+************************
+
+
