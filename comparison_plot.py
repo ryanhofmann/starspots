@@ -18,12 +18,12 @@ import matplotlib.pyplot as plt
 import pickle
 
 # Set variables
-planet = "LHS1140b"
-dT = 100
-flux_file = "/home/ryan/research/starspots/TDV/LHS1140b_100K/fluxes/014.pkl"
-solar_file = "/home/ryan/research/starspots/Exo_Transmit/Spectra/LHS1140/300K_solar_LHS1140b.dat"
-H2O_file = "/home/ryan/research/starspots/Exo_Transmit/Spectra/LHS1140/300K_H2O_LHS1140b.dat"
-CO2_file = "/home/ryan/research/starspots/Exo_Transmit/Spectra/LHS1140/300K_CO2_LHS1140b.dat"
+planet = "Earth_TRAPPIST-1"
+dT = 260
+flux_file = "/home/ryan/research/starspots/TDV/02560_02300_0.078_filtered/fluxes/044.pkl"
+solar_file = "/home/ryan/research/starspots/Exo_Transmit/Spectra/Earth/300K_solar_earth_trappist1.dat"
+H2O_file = "/home/ryan/research/starspots/Exo_Transmit/Spectra/Earth/300K_H2O_earth_trappist1.dat"
+CO2_file = "/home/ryan/research/starspots/Exo_Transmit/Spectra/Earth/300K_CO2_earth_trappist1.dat"
 labels = ["solar", "H2O", "CO2"]
 xmin, xmax, dx = 3000, 25000, 100
 
@@ -34,6 +34,13 @@ params, flux = pickle.load(open(flux_file, "rb"))
 solar = np.genfromtxt(solar_file, skip_header=2)
 H2O = np.genfromtxt(H2O_file, skip_header=2)
 CO2 = np.genfromtxt(CO2_file, skip_header=2)
+
+# Convolve Exo-Transmit spectra to lower resolution
+from astropy.convolution import Gaussian1DKernel, convolve
+gauss = Gaussian1DKernel(stddev=5)
+solar[:,1] = convolve(solar[:,1], gauss, boundary='extend')
+H2O[:,1] = convolve(H2O[:,1], gauss, boundary='extend')
+CO2[:,1] = convolve(CO2[:,1], gauss, boundary='extend')
 spectra = np.array([solar, H2O, CO2])
 
 # Convert flux to transit depth
@@ -48,15 +55,15 @@ for i in range(int(len(TDV[0])/10)):
 
 # Overplot transmission spectra
 for spectrum, label in zip(spectra, labels):
-  plt.plot(spectrum[:,0]*1e10, spectrum[:,1], label=label)
+  plt.plot(spectrum[:,0]*1e10, spectrum[:,1], linewidth=2, label=label)
 
 # Format plot
 plt.axhline(Rp_Rs**2*100, color='k')
 plt.xlim((xmin, xmax))
-plt.ylim((0.49, 0.55))
+plt.ylim((0.6, 0.7))
 plt.legend()
 plt.xlabel("angstroms")
 plt.ylabel("transit depth [%]")
-plt.title("Starspot TDVs and atmospheric models for {}, DeltaT = {:d} K, ".format(planet, dT))
+plt.title("Starspot TDVs and atmospheric models for Earth-size planet in HZ of TRAPPIST-1, DeltaT = {:d} K".format(dT))
 plt.savefig("comparison_{}_{:d}K.png".format(planet, dT))
 
